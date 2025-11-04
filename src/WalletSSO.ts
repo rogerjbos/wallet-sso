@@ -25,7 +25,7 @@ export class WalletSSO {
 
     // Initialize providers
     this.providers.set('metamask', new MetaMaskProvider());
-    this.providers.set('polkadot', new PolkadotProvider(config.polkadotEndpoints));
+    this.providers.set('polkadot', new PolkadotProvider(config.polkadotEndpoints || undefined));
   }
 
   // Generate authentication challenge

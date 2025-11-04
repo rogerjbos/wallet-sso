@@ -14,7 +14,7 @@ class WalletSSO {
         this.challengeUtils = new ChallengeUtils_1.ChallengeUtils();
         // Initialize providers
         this.providers.set('metamask', new MetaMaskProvider_1.MetaMaskProvider());
-        this.providers.set('polkadot', new PolkadotProvider_1.PolkadotProvider(config.polkadotEndpoints));
+        this.providers.set('polkadot', new PolkadotProvider_1.PolkadotProvider(config.polkadotEndpoints || undefined));
     }
     // Generate authentication challenge
     generateChallenge(address, walletType) {

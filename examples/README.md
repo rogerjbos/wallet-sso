@@ -18,7 +18,7 @@ The `simple-frontend.html` file is a **complete, standalone example** that shows
 2. ✅ **Wallet Connection** - Connect to the selected wallet
 3. ✅ **3-Step Authentication Flow**:
    - Get authentication challenge from server
-   - Sign message with wallet
+   - Sign message with wallet (direct extension APIs, no external libraries)
    - Send signature to server for verification
 4. ✅ **Token Management** - Display and store access tokens
 5. ✅ **Beautiful UI** - Modern, responsive design
@@ -66,7 +66,7 @@ npx http-server -p 8080
 
 #### Configuration
 
-1. Make sure your API server is running (default: `http://localhost:4000/api`)
+1. Make sure your API server is running (default: `http://localhost:3001`)
 2. Update the **API Server URL** field in the demo if needed
 3. Click on a wallet type (MetaMask or Polkadot)
 4. Click "Connect" to connect your wallet
@@ -175,6 +175,17 @@ const response = await fetch('http://localhost:4000/api/protected-endpoint', {
 - Verify your backend server is running
 - Ensure the JWT secret matches between frontend and backend config
 
+**Browser extension blocking**
+- Some security extensions may block local API calls
+- Try disabling browser extensions temporarily or use incognito mode
+- Serve the frontend from `localhost` instead of IP addresses
+- Check the server CORS configuration includes your serving origin
+
+**Server not responding**
+- Ensure the server is running: `curl http://localhost:3001/health`
+- Check that CORS origins in `server.ts` include your frontend URL
+- Verify the API URL in the demo matches your server configuration
+
 ### Next Steps
 
 After trying the simple frontend example:
@@ -230,14 +241,14 @@ export function useWalletAuth() {
     const signature = await signMessage(message, address, walletType);
 
     // 4. Authenticate
-    const { access_token } = await fetch('/api/auth/login', {
+    const { accessToken } = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message, signature, address, walletType })
     }).then(r => r.json());
 
-    localStorage.setItem('accessToken', access_token);
-    setAccessToken(access_token);
+    localStorage.setItem('accessToken', accessToken);
+    setAccessToken(accessToken);
   };
 
   return { accessToken, authenticate };
@@ -251,12 +262,13 @@ import { WalletSSOServer } from '@rogerbos/wallet-sso';
 
 const server = new WalletSSOServer({
   jwtSecret: process.env.JWT_SECRET,
-  jwtIssuer: 'https://your-app.com',
-  jwtAudience: 'your-app',
+  jwtIssuer: 'http://localhost:3001',
+  jwtAudience: 'wallet-sso-demo',
   accessTokenExpiry: 3600,
   refreshTokenExpiry: 86400,
   sessionSecret: process.env.SESSION_SECRET,
-  port: 4000
+  port: 3001,
+  corsOrigins: ['http://localhost:3000', 'http://localhost:8080']
 });
 
 server.start();

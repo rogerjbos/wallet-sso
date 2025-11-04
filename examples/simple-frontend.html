@@ -238,7 +238,7 @@
         <!-- Configuration -->
         <div class="config-section">
             <label class="config-label">API Server URL:</label>
-            <input type="text" id="apiUrl" class="config-input" value="http://localhost:4000/api" placeholder="http://localhost:4000/api">
+            <input type="text" id="apiUrl" class="config-input" value="http://localhost:3001" placeholder="http://localhost:3001">
         </div>
 
         <!-- Status Messages -->
@@ -290,7 +290,6 @@
                 <pre id="tokenValue"></pre>
             </div>
         </div>
-    </div>
 
     <script>
         let selectedWallet = null;
@@ -368,16 +367,21 @@
 
             showStatus('Connecting to Polkadot...', 'info');
 
-            // Enable the extension
-            const { web3Accounts, web3Enable } = window.injectedWeb3['polkadot-js'];
-            
-            const extensions = await web3Enable('Wallet SSO Demo');
-            if (extensions.length === 0) {
-                throw new Error('No Polkadot extension found or user denied access');
+            // Use the extension directly instead of extension-dapp
+            const extension = window.injectedWeb3['polkadot-js'];
+            if (!extension) {
+                throw new Error('Polkadot.js extension not found');
             }
 
-            const accounts = await web3Accounts();
-            if (accounts.length === 0) {
+            // Enable the extension
+            const enabled = await extension.enable('Wallet SSO Demo');
+            if (!enabled) {
+                throw new Error('Failed to enable Polkadot extension');
+            }
+
+            // Get accounts
+            const accounts = await enabled.accounts.get();
+            if (!accounts || accounts.length === 0) {
                 throw new Error('No accounts found in Polkadot extension');
             }
 
@@ -401,7 +405,10 @@
             btn.innerHTML = '<span class="spinner"></span>Authenticating...';
 
             try {
+                console.log('🔄 Starting authentication process...');
+                
                 // Step 1: Get challenge
+                console.log('📡 Step 1: Requesting challenge from server...');
                 showStatus('Step 1/3: Getting authentication challenge...', 'info');
                 const challengeResponse = await fetch(`${getApiUrl()}/auth/challenge`, {
                     method: 'POST',
@@ -412,31 +419,44 @@
                     })
                 });
 
+                console.log('📡 Challenge response status:', challengeResponse.status);
                 if (!challengeResponse.ok) {
                     throw new Error(`Challenge failed: ${challengeResponse.statusText}`);
                 }
 
                 const { message } = await challengeResponse.json();
-                console.log('Challenge message:', message);
+                console.log('✅ Challenge message received:', message);
 
                 // Step 2: Sign message
+                console.log('✍️ Step 2: Requesting signature from wallet...');
                 showStatus('Step 2/3: Please sign the message in your wallet...', 'info');
                 let signature;
 
                 if (selectedWallet === 'metamask') {
+                    console.log('🔑 Using MetaMask for signing...');
                     signature = await window.ethereum.request({
                         method: 'personal_sign',
                         params: [message, connectedAddress]
                     });
+                    console.log('✅ MetaMask signature received');
                 } else if (selectedWallet === 'polkadot') {
-                    const { web3FromAddress } = window.injectedWeb3['polkadot-js'];
-                    const injector = await web3FromAddress(connectedAddress);
-                    const signRaw = injector?.signer?.signRaw;
-
-                    if (!signRaw) {
-                        throw new Error('Signing not available');
+                    console.log('🔑 Using Polkadot extension for signing...');
+                    // Use the extension directly for signing
+                    const extension = window.injectedWeb3['polkadot-js'];
+                    if (!extension) {
+                        throw new Error('Polkadot.js extension not available for signing');
                     }
 
+                    console.log('🔌 Enabling Polkadot extension...');
+                    const enabled = await extension.enable('Wallet SSO Demo');
+                    console.log('✅ Polkadot extension enabled');
+
+                    const signer = enabled.signer;
+                    if (!signer || !signer.signRaw) {
+                        throw new Error('Signing not available in Polkadot extension');
+                    }
+
+                    console.log('📝 Converting message to hex...');
                     // Convert message to hex
                     const stringToHex = (str) => {
                         return '0x' + Array.from(str)
@@ -444,18 +464,23 @@
                             .join('');
                     };
 
-                    const { signature: polkadotSig } = await signRaw({
+                    const hexMessage = stringToHex(message);
+                    console.log('📝 Requesting signature for:', hexMessage);
+                    
+                    const { signature: polkadotSig } = await signer.signRaw({
                         address: connectedAddress,
-                        data: stringToHex(message),
+                        data: hexMessage,
                         type: 'bytes'
                     });
 
                     signature = polkadotSig;
+                    console.log('✅ Polkadot signature received');
                 }
 
-                console.log('Signature:', signature);
+                console.log('✅ Signature obtained:', signature ? signature.substring(0, 20) + '...' : 'undefined');
 
                 // Step 3: Authenticate
+                console.log('🔐 Step 3: Sending authentication request...');
                 showStatus('Step 3/3: Verifying signature...', 'info');
                 const authResponse = await fetch(`${getApiUrl()}/auth/login`, {
                     method: 'POST',
@@ -469,18 +494,21 @@
                     })
                 });
 
+                console.log('🔐 Auth response status:', authResponse.status);
                 if (!authResponse.ok) {
                     const errorData = await authResponse.json();
+                    console.error('❌ Auth response error:', errorData);
                     throw new Error(`Authentication failed: ${errorData.error || authResponse.statusText}`);
                 }
 
                 const tokens = await authResponse.json();
-                accessToken = tokens.access_token;
+                console.log('🎉 Authentication successful! Tokens received');
+                accessToken = tokens.accessToken;
 
                 // Store in localStorage
-                localStorage.setItem('accessToken', tokens.access_token);
-                if (tokens.refresh_token) {
-                    localStorage.setItem('refreshToken', tokens.refresh_token);
+                localStorage.setItem('accessToken', tokens.accessToken);
+                if (tokens.refreshToken) {
+                    localStorage.setItem('refreshToken', tokens.refreshToken);
                 }
 
                 // Update UI
@@ -488,7 +516,7 @@
                 document.getElementById('authStatus').style.color = '#2e7d32';
                 document.getElementById('tokenDisplay').style.display = 'block';
                 document.getElementById('tokenValue').textContent = 
-                    `${tokens.access_token.substring(0, 50)}...\n\nExpires in: ${tokens.expires_in} seconds`;
+                    `${tokens.accessToken.substring(0, 50)}...\n\nExpires in: ${tokens.expiresIn} seconds`;
 
                 showStatus('✅ Authentication successful!', 'success');
                 console.log('Tokens:', tokens);
@@ -525,8 +553,18 @@
 
         // Load Polkadot.js extension API if available
         window.addEventListener('load', () => {
+            console.log('Page loaded. Checking wallet libraries...');
+
             if (typeof window.injectedWeb3 === 'undefined') {
-                console.log('Polkadot.js extension not detected');
+                console.log('❌ Polkadot.js extension not detected');
+            } else {
+                console.log('✅ Polkadot.js extension detected');
+            }
+
+            if (typeof window.ethereum === 'undefined') {
+                console.log('❌ MetaMask not detected');
+            } else {
+                console.log('✅ MetaMask detected');
             }
         });
     </script>

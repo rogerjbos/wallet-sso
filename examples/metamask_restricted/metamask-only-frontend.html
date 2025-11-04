@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wallet SSO - Simple Frontend Example</title>
+    <title>Wallet SSO - MetaMask Only Example</title>
     <style>
         * {
             margin: 0;
@@ -42,9 +42,22 @@
             font-size: 14px;
         }
 
+        .restriction-notice {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #856404;
+        }
+
+        .restriction-notice strong {
+            color: #533f00;
+        }
+
         .wallet-buttons {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr;
             gap: 15px;
             margin-bottom: 30px;
         }
@@ -73,6 +86,18 @@
             background: #f0f3ff;
         }
 
+        .wallet-btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: #f5f5f5;
+        }
+
+        .wallet-btn.disabled:hover {
+            border-color: #e0e0e0;
+            transform: none;
+            box-shadow: none;
+        }
+
         .wallet-icon {
             font-size: 32px;
         }
@@ -80,6 +105,12 @@
         .wallet-name {
             font-weight: 600;
             color: #333;
+        }
+
+        .wallet-description {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
         }
 
         .status {
@@ -232,8 +263,13 @@
 </head>
 <body>
     <div class="container">
-        <h1>🔐 Wallet SSO Demo</h1>
-        <p class="subtitle">Connect your Web3 wallet to authenticate</p>
+        <h1>🔒 MetaMask Only SSO Demo</h1>
+        <p class="subtitle">Restricted authentication - MetaMask wallets only</p>
+
+        <!-- Restriction Notice -->
+        <div class="restriction-notice">
+            <strong>🚫 Wallet Restriction Active:</strong> Only MetaMask wallets are allowed to authenticate with this service. Polkadot wallets will be rejected.
+        </div>
 
         <!-- Configuration -->
         <div class="config-section">
@@ -247,17 +283,19 @@
         <!-- Wallet Selection -->
         <div id="walletSelection" class="auth-section active">
             <div class="wallet-buttons">
-                <div class="wallet-btn" id="metamaskBtn" onclick="selectWallet('metamask')">
+                <div class="wallet-btn active" id="metamaskBtn">
                     <div class="wallet-icon">🦊</div>
                     <div class="wallet-name">MetaMask</div>
+                    <div class="wallet-description">Allowed - Ethereum wallet</div>
                 </div>
-                <div class="wallet-btn" id="polkadotBtn" onclick="selectWallet('polkadot')">
+                <div class="wallet-btn disabled" id="polkadotBtn">
                     <div class="wallet-icon">🔴</div>
-                    <div class="wallet-name">Polkadot</div>
+                    <div class="wallet-name">Polkadot (Disabled)</div>
+                    <div class="wallet-description">Blocked - Not allowed</div>
                 </div>
             </div>
-            <button class="btn" onclick="connectWallet()" disabled id="connectBtn">
-                Select a Wallet to Continue
+            <button class="btn" onclick="connectWallet()" id="connectBtn">
+                Connect MetaMask
             </button>
         </div>
 
@@ -292,9 +330,12 @@
         </div>
 
     <script>
-        let selectedWallet = null;
+        let selectedWallet = 'metamask'; // Pre-selected and locked to MetaMask
         let connectedAddress = null;
         let accessToken = null;
+
+        // Allowed wallets configuration
+        const ALLOWED_WALLETS = ['metamask'];
 
         function getApiUrl() {
             return document.getElementById('apiUrl').value.trim();
@@ -305,7 +346,7 @@
             status.textContent = message;
             status.className = `status ${type}`;
             status.style.display = 'block';
-            
+
             if (type === 'success' || type === 'error') {
                 setTimeout(() => {
                     status.style.display = 'none';
@@ -313,17 +354,8 @@
             }
         }
 
-        function selectWallet(wallet) {
-            selectedWallet = wallet;
-            
-            // Update UI
-            document.getElementById('metamaskBtn').classList.remove('active');
-            document.getElementById('polkadotBtn').classList.remove('active');
-            document.getElementById(wallet + 'Btn').classList.add('active');
-            
-            const btn = document.getElementById('connectBtn');
-            btn.disabled = false;
-            btn.textContent = `Connect ${wallet === 'metamask' ? 'MetaMask' : 'Polkadot'}`;
+        function isWalletAllowed(walletType) {
+            return ALLOWED_WALLETS.includes(walletType);
         }
 
         async function connectWallet() {
@@ -332,11 +364,18 @@
                 return;
             }
 
+            // Check if wallet is allowed
+            if (!isWalletAllowed(selectedWallet)) {
+                showStatus(`❌ Wallet type "${selectedWallet}" is not allowed on this service`, 'error');
+                return;
+            }
+
             try {
                 if (selectedWallet === 'metamask') {
                     await connectMetaMask();
                 } else if (selectedWallet === 'polkadot') {
-                    await connectPolkadot();
+                    showStatus('❌ Polkadot wallets are not allowed on this restricted service', 'error');
+                    return;
                 }
             } catch (error) {
                 console.error('Connection error:', error);
@@ -350,52 +389,21 @@
             }
 
             showStatus('Connecting to MetaMask...', 'info');
-            
-            const accounts = await window.ethereum.request({ 
-                method: 'eth_requestAccounts' 
+
+            const accounts = await window.ethereum.request({
+                method: 'eth_requestAccounts'
             });
-            
+
             connectedAddress = accounts[0];
             showConnectedState();
             showStatus('MetaMask connected successfully!', 'success');
         }
 
-        async function connectPolkadot() {
-            if (typeof window.injectedWeb3 === 'undefined') {
-                throw new Error('Polkadot.js extension is not installed. Please install it from the browser extension store.');
-            }
-
-            showStatus('Connecting to Polkadot...', 'info');
-
-            // Use the extension directly instead of extension-dapp
-            const extension = window.injectedWeb3['polkadot-js'];
-            if (!extension) {
-                throw new Error('Polkadot.js extension not found');
-            }
-
-            // Enable the extension
-            const enabled = await extension.enable('Wallet SSO Demo');
-            if (!enabled) {
-                throw new Error('Failed to enable Polkadot extension');
-            }
-
-            // Get accounts
-            const accounts = await enabled.accounts.get();
-            if (!accounts || accounts.length === 0) {
-                throw new Error('No accounts found in Polkadot extension');
-            }
-
-            connectedAddress = accounts[0].address;
-            showConnectedState();
-            showStatus('Polkadot connected successfully!', 'success');
-        }
-
         function showConnectedState() {
             document.getElementById('walletSelection').classList.remove('active');
             document.getElementById('connectedSection').classList.add('active');
-            
-            document.getElementById('walletTypeDisplay').textContent = 
-                selectedWallet === 'metamask' ? '🦊 MetaMask (Ethereum)' : '🔴 Polkadot';
+
+            document.getElementById('walletTypeDisplay').textContent = '🦊 MetaMask (Ethereum)';
             document.getElementById('addressDisplay').textContent = connectedAddress;
         }
 
@@ -406,7 +414,7 @@
 
             try {
                 console.log('🔄 Starting authentication process...');
-                
+
                 // Step 1: Get challenge
                 console.log('📡 Step 1: Requesting challenge from server...');
                 showStatus('Step 1/3: Getting authentication challenge...', 'info');
@@ -421,7 +429,9 @@
 
                 console.log('📡 Challenge response status:', challengeResponse.status);
                 if (!challengeResponse.ok) {
-                    throw new Error(`Challenge failed: ${challengeResponse.statusText}`);
+                    const errorData = await challengeResponse.json().catch(() => ({}));
+                    console.error('❌ Challenge response error:', errorData);
+                    throw new Error(`Challenge failed: ${errorData.error || challengeResponse.statusText}`);
                 }
 
                 const { message } = await challengeResponse.json();
@@ -439,42 +449,8 @@
                         params: [message, connectedAddress]
                     });
                     console.log('✅ MetaMask signature received');
-                } else if (selectedWallet === 'polkadot') {
-                    console.log('🔑 Using Polkadot extension for signing...');
-                    // Use the extension directly for signing
-                    const extension = window.injectedWeb3['polkadot-js'];
-                    if (!extension) {
-                        throw new Error('Polkadot.js extension not available for signing');
-                    }
-
-                    console.log('🔌 Enabling Polkadot extension...');
-                    const enabled = await extension.enable('Wallet SSO Demo');
-                    console.log('✅ Polkadot extension enabled');
-
-                    const signer = enabled.signer;
-                    if (!signer || !signer.signRaw) {
-                        throw new Error('Signing not available in Polkadot extension');
-                    }
-
-                    console.log('📝 Converting message to hex...');
-                    // Convert message to hex
-                    const stringToHex = (str) => {
-                        return '0x' + Array.from(str)
-                            .map(c => c.charCodeAt(0).toString(16).padStart(2, '0'))
-                            .join('');
-                    };
-
-                    const hexMessage = stringToHex(message);
-                    console.log('📝 Requesting signature for:', hexMessage);
-                    
-                    const { signature: polkadotSig } = await signer.signRaw({
-                        address: connectedAddress,
-                        data: hexMessage,
-                        type: 'bytes'
-                    });
-
-                    signature = polkadotSig;
-                    console.log('✅ Polkadot signature received');
+                } else {
+                    throw new Error(`Wallet type "${selectedWallet}" is not allowed for authentication`);
                 }
 
                 console.log('✅ Signature obtained:', signature ? signature.substring(0, 20) + '...' : 'undefined');
@@ -496,7 +472,7 @@
 
                 console.log('🔐 Auth response status:', authResponse.status);
                 if (!authResponse.ok) {
-                    const errorData = await authResponse.json();
+                    const errorData = await authResponse.json().catch(() => ({}));
                     console.error('❌ Auth response error:', errorData);
                     throw new Error(`Authentication failed: ${errorData.error || authResponse.statusText}`);
                 }
@@ -515,7 +491,7 @@
                 document.getElementById('authStatus').textContent = '✅ Authenticated';
                 document.getElementById('authStatus').style.color = '#2e7d32';
                 document.getElementById('tokenDisplay').style.display = 'block';
-                document.getElementById('tokenValue').textContent = 
+                document.getElementById('tokenValue').textContent =
                     `${tokens.accessToken.substring(0, 50)}...\n\nExpires in: ${tokens.expiresIn} seconds`;
 
                 showStatus('✅ Authentication successful!', 'success');
@@ -531,40 +507,36 @@
         }
 
         function disconnect() {
-            selectedWallet = null;
+            selectedWallet = 'metamask'; // Reset to MetaMask
             connectedAddress = null;
             accessToken = null;
-            
+
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
-            
+
             document.getElementById('walletSelection').classList.add('active');
             document.getElementById('connectedSection').classList.remove('active');
-            document.getElementById('metamaskBtn').classList.remove('active');
-            document.getElementById('polkadotBtn').classList.remove('active');
-            document.getElementById('connectBtn').disabled = true;
-            document.getElementById('connectBtn').textContent = 'Select a Wallet to Continue';
             document.getElementById('authStatus').textContent = 'Not Authenticated';
             document.getElementById('authStatus').style.color = '';
             document.getElementById('tokenDisplay').style.display = 'none';
-            
+
             showStatus('Disconnected successfully', 'info');
         }
 
-        // Load Polkadot.js extension API if available
+        // Load wallet libraries if available
         window.addEventListener('load', () => {
             console.log('Page loaded. Checking wallet libraries...');
-
-            if (typeof window.injectedWeb3 === 'undefined') {
-                console.log('❌ Polkadot.js extension not detected');
-            } else {
-                console.log('✅ Polkadot.js extension detected');
-            }
+            console.log('🔒 Wallet restrictions active. Allowed wallets:', ALLOWED_WALLETS);
 
             if (typeof window.ethereum === 'undefined') {
                 console.log('❌ MetaMask not detected');
+                showStatus('⚠️ MetaMask is required for this restricted service', 'error');
             } else {
                 console.log('✅ MetaMask detected');
+            }
+
+            if (typeof window.injectedWeb3 !== 'undefined') {
+                console.log('ℹ️ Polkadot extension detected but disabled for this service');
             }
         });
     </script>

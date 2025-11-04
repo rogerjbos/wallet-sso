@@ -259,7 +259,43 @@ function WalletAuth() {
 }
 ```
 
-## Security Considerations
+## Typink Integration
+
+For React applications, you can integrate with [Typink](https://github.com/dedotdev/typink) for enhanced Polkadot/Substrate contract interactions:
+
+```bash
+npm install typink
+```
+
+```typescript
+import { useWallet, useTypink } from 'typink';
+
+// In your React component
+function PolkadotAuth() {
+  const { accounts, connect, disconnect, isConnected } = useWallet();
+  const { api, network } = useTypink();
+
+  const authenticate = async () => {
+    if (!isConnected) await connect();
+    
+    // Use wallet-sso for authentication
+    // ... authentication logic ...
+    
+    // Then use typink for contract interactions
+    // ... contract calls ...
+  };
+
+  return (
+    <div>
+      <button onClick={authenticate}>
+        {isConnected ? 'Authenticate' : 'Connect Wallet'}
+      </button>
+    </div>
+  );
+}
+```
+
+Typink provides React hooks for wallet management and contract interactions, complementing wallet-sso's authentication capabilities.
 
 - **Challenge Expiration**: Authentication challenges expire after 5 minutes
 - **Signature Verification**: All signatures are cryptographically verified

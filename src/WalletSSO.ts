@@ -55,6 +55,7 @@ export class WalletSSO {
     }
 
     // Get or create user
+    console.log('[WalletSSO] Signature verified, getting/creating user...');
     let user = this.getUserByAddress(address, walletType);
     if (!user) {
       user = await this.createUser(address, walletType, chainId);
@@ -62,6 +63,7 @@ export class WalletSSO {
       // Update last login
       user.lastLoginAt = new Date();
     }
+    console.log('[WalletSSO] User ready, generating tokens...');
 
     // Generate tokens
     const accessToken = this.jwtUtils.generateAccessToken({
@@ -82,13 +84,15 @@ export class WalletSSO {
       nonce: user.nonce,
     });
 
-    return {
+    const result: AuthResponse = {
       accessToken,
       refreshToken,
       idToken,
       expiresIn: this.config.accessTokenExpiry,
       tokenType: 'Bearer',
     };
+    console.log('[WalletSSO] Tokens generated, returning response');
+    return result;
   }
 
   // Refresh access token

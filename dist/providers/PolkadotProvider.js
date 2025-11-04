@@ -29,11 +29,13 @@ class PolkadotProvider {
     }
     async verifySignature(message, signature, address) {
         try {
-            await this.connect();
+            console.log('🔍 [PolkadotProvider] verifySignature called - NO RPC connection');
+            // No need to connect to RPC - signature verification is done locally
             // Convert address to public key
             const publicKey = (0, util_crypto_1.decodeAddress)(address);
             // Verify signature
             const { isValid } = (0, util_crypto_1.signatureVerify)(message, signature, publicKey);
+            console.log(`🔍 [PolkadotProvider] Signature valid: ${isValid}`);
             return isValid;
         }
         catch (error) {
@@ -43,25 +45,18 @@ class PolkadotProvider {
     }
     async getUserInfo(address) {
         try {
-            await this.connect();
-            if (!this.api)
-                throw new Error('API not connected');
-            // Get account balance
-            const account = await this.api.query.system.account(address);
-            const balance = account.data.free.toString();
-            // Get identity if available
-            let identity = null;
-            try {
-                identity = await this.api.query.identity.identityOf(address);
-            }
-            catch (error) {
-                // Identity pallet might not be available
-            }
+            console.log('🔍 [PolkadotProvider] getUserInfo called - skipping RPC for fast auth');
+            // For authentication, we don't need balance or identity info
+            // Return minimal info without RPC connection to avoid delays
             return {
                 address: address.toLowerCase(),
                 publicKey: (0, util_1.u8aToHex)((0, util_crypto_1.decodeAddress)(address)),
-                balance: balance,
             };
+            // Note: If you need balance/identity, connect to RPC separately after auth
+            // await this.connect();
+            // if (!this.api) throw new Error('API not connected');
+            // const account = await this.api.query.system.account(address);
+            // const balance = (account as any).data.free.toString();
         }
         catch (error) {
             console.error('Failed to get Polkadot user info:', error);
@@ -71,27 +66,10 @@ class PolkadotProvider {
         }
     }
     async getChainId() {
-        try {
-            await this.connect();
-            if (!this.api)
-                throw new Error('API not connected');
-            const chain = await this.api.rpc.system.chain();
-            const chainId = chain.toString().toLowerCase();
-            // Map common chains to IDs
-            if (chainId.includes('paseo'))
-                return 42; // Paseo testnet
-            if (chainId.includes('polkadot'))
-                return 0;
-            if (chainId.includes('kusama'))
-                return 2;
-            if (chainId.includes('westend'))
-                return 42;
-            return 42; // Default to Paseo testnet
-        }
-        catch (error) {
-            console.error('Failed to get chain ID:', error);
-            return 42; // Default to Paseo testnet
-        }
+        // Do not connect to RPC during authentication; return a sensible default quickly
+        // If needed, resolve actual chain ID later after auth
+        console.log('🔍 [PolkadotProvider] getChainId returning default (no RPC)');
+        return 42; // Paseo / default testnet
     }
     async disconnect() {
         if (this.api) {

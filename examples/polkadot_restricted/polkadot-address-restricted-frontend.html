@@ -354,8 +354,19 @@
                     <div class="user-info-value" id="addressDisplay"></div>
                 </div>
                 <div class="user-info-item">
+                    <div class="user-info-label">Auth Status:</div>
+                    <div class="user-info-value" id="authStatus">Not Authenticated</div>
+                </div>
+                <div class="user-info-item">
                     <div class="user-info-label">Access Status:</div>
                     <div class="user-info-value" id="accessStatus">Checking...</div>
+                </div>
+                <div class="user-info-item">
+                    <div class="user-info-label">Encodings (SS58):</div>
+                    <div class="user-info-value">
+                        <div><strong>prefix 0:</strong> <span id="encoding0">—</span></div>
+                        <div><strong>prefix 42:</strong> <span id="encoding42">—</span></div>
+                    </div>
                 </div>
             </div>
 
@@ -371,23 +382,62 @@
             </button>
 
             <div id="tokenDisplay" class="token-display" style="display: none;">
-                <strong>Access Token:</strong>
-                <pre id="tokenValue"></pre>
+                <div class="token-item">
+                    <div class="token-label">Access Token:</div>
+                    <div class="token-value" id="tokenValue"></div>
+                </div>
+                <div class="token-item">
+                    <div class="token-label">Refresh Token:</div>
+                    <div class="token-value" id="refreshToken">—</div>
+                </div>
+                <div class="token-item">
+                    <div class="token-label">Profile:</div>
+                    <div class="token-value" id="userProfile">—</div>
+                </div>
             </div>
         </div>
 
     <script>
-        let selectedWallet = 'polkadot'; // Pre-selected and locked to Polkadot
-        let connectedAddress = null;
-        let accessToken = null;
-        let isAddressWhitelisted = false;
+    let selectedWallet = 'polkadot'; // Pre-selected and locked to Polkadot
+    let connectedAddress = null;
+    let accessToken = null;
+    let addressWhitelisted = false;
 
-        // Whitelisted addresses (in production, this would come from backend/database)
-        const WHITELISTED_ADDRESSES = [
-            '1ABC...', // Example addresses - replace with real ones
-            '5FJQ...', // These are placeholder addresses
-            '15M8...', // In production, load from your database
-        ];
+        // Whitelisted addresses loaded from server
+        let WHITELISTED_ADDRESSES = [];
+
+        async function loadWhitelist() {
+            try {
+                const res = await fetch(`${getApiUrl()}/admin/whitelist`);
+                if (!res.ok) throw new Error('Failed to load whitelist');
+                const data = await res.json();
+                const list = new Set([
+                    ...(data.whitelistedAddresses || []),
+                    ...((data.reencoded && data.reencoded.prefix42) || []),
+                    ...((data.reencoded && data.reencoded.prefix0) || []),
+                ]);
+                WHITELISTED_ADDRESSES = Array.from(list);
+                console.log('🔄 Whitelist loaded from server:', WHITELISTED_ADDRESSES);
+                // If already connected, refresh status
+                if (connectedAddress) updateAccessStatus(connectedAddress);
+            } catch (e) {
+                console.warn('Could not load whitelist from server:', e.message);
+            }
+        }
+
+        async function loadEncodings(address) {
+            try {
+                const res = await fetch(`${getApiUrl()}/tools/reencode?address=${encodeURIComponent(address)}`);
+                if (!res.ok) throw new Error('Failed to load encodings');
+                const data = await res.json();
+                document.getElementById('encoding0').textContent = data.prefix0 || '—';
+                document.getElementById('encoding42').textContent = data.prefix42 || '—';
+            } catch (e) {
+                console.warn('Could not load encodings:', e.message);
+                document.getElementById('encoding0').textContent = '—';
+                document.getElementById('encoding42').textContent = '—';
+            }
+        }
 
         function getApiUrl() {
             return document.getElementById('apiUrl').value.trim();
@@ -406,7 +456,7 @@
             }
         }
 
-        function isAddressWhitelisted(address) {
+        function checkAddressWhitelisted(address) {
             // In production, this would be an API call to check against database
             return WHITELISTED_ADDRESSES.some(whitelisted =>
                 whitelisted.toLowerCase() === address.toLowerCase()
@@ -419,9 +469,9 @@
             const accessContent = document.getElementById('accessContent');
             const authBtn = document.getElementById('authBtn');
 
-            isAddressWhitelisted = isAddressWhitelisted(address);
+            addressWhitelisted = checkAddressWhitelisted(address);
 
-            if (isAddressWhitelisted) {
+            if (addressWhitelisted) {
                 accessStatus.textContent = '✅ Whitelisted';
                 accessStatus.style.color = '#2e7d32';
                 accessMessage.className = 'access-status access-granted';
@@ -432,9 +482,9 @@
                 accessStatus.textContent = '❌ Not Whitelisted';
                 accessStatus.style.color = '#c62828';
                 accessMessage.className = 'access-status access-denied';
-                accessContent.textContent = '🚫 Access Denied - Your address is not authorized for this service';
-                authBtn.disabled = true;
-                authBtn.innerHTML = '🔒 Authentication Blocked (Address Not Whitelisted)';
+                accessContent.textContent = '🚫 Address not found in local whitelist. You can still try to authenticate and the server will enforce the restriction.';
+                authBtn.disabled = false; // Allow attempt; server will enforce
+                authBtn.innerHTML = '� Try Authentication (Server Enforced)';
             }
         }
 
@@ -497,13 +547,13 @@
 
             document.getElementById('walletTypeDisplay').textContent = '🔴 Polkadot (Address Restricted)';
             document.getElementById('addressDisplay').textContent = connectedAddress;
+
+            // Load encodings for the connected address
+            loadEncodings(connectedAddress);
         }
 
         async function authenticate() {
-            if (!isAddressWhitelisted) {
-                showStatus('❌ Authentication blocked: Address not whitelisted', 'error');
-                return;
-            }
+            // Allow auth attempt even if local check fails; server will enforce whitelist
 
             const btn = document.getElementById('authBtn');
             btn.disabled = true;
@@ -613,12 +663,31 @@
                     localStorage.setItem('refreshToken', tokens.refreshToken);
                 }
 
+                // Fetch and display user profile
+                try {
+                    const profileRes = await fetch(`${getApiUrl()}/user/profile`, {
+                        headers: { 'Authorization': `Bearer ${tokens.accessToken}` }
+                    });
+                    if (profileRes.ok) {
+                        const profile = await profileRes.json();
+                        document.getElementById('userProfile').textContent = JSON.stringify(profile, null, 2);
+                    } else {
+                        document.getElementById('userProfile').textContent = 'Failed to load profile';
+                    }
+                } catch (e) {
+                    console.warn('Could not load profile:', e.message);
+                    document.getElementById('userProfile').textContent = 'Error loading profile';
+                }
+
                 // Update UI
                 document.getElementById('authStatus').textContent = '✅ Authenticated';
                 document.getElementById('authStatus').style.color = '#2e7d32';
                 document.getElementById('tokenDisplay').style.display = 'block';
                 document.getElementById('tokenValue').textContent =
                     `${tokens.accessToken.substring(0, 50)}...\n\nExpires in: ${tokens.expiresIn} seconds`;
+                if (tokens.refreshToken) {
+                    document.getElementById('refreshToken').textContent = `${tokens.refreshToken.substring(0, 50)}...`;
+                }
 
                 showStatus('✅ Authentication successful!', 'success');
                 console.log('Tokens:', tokens);
@@ -628,7 +697,7 @@
                 showStatus(`Authentication failed: ${error.message}`, 'error');
             } finally {
                 btn.disabled = false;
-                if (isAddressWhitelisted) {
+                if (addressWhitelisted) {
                     btn.innerHTML = '🔑 Authenticate';
                 } else {
                     btn.innerHTML = '🔒 Authentication Blocked (Address Not Whitelisted)';
@@ -640,7 +709,7 @@
             selectedWallet = 'polkadot'; // Reset to Polkadot
             connectedAddress = null;
             accessToken = null;
-            isAddressWhitelisted = false;
+            addressWhitelisted = false;
 
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
@@ -661,6 +730,7 @@
         // Load wallet libraries if available
         window.addEventListener('load', () => {
             console.log('Page loaded. Checking wallet libraries...');
+            loadWhitelist();
             console.log('🔒 Address-based restrictions active. Whitelisted addresses:', WHITELISTED_ADDRESSES);
 
             if (typeof window.injectedWeb3 === 'undefined') {

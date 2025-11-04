@@ -38,6 +38,7 @@ class WalletSSO {
             throw new Error('Invalid signature');
         }
         // Get or create user
+        console.log('[WalletSSO] Signature verified, getting/creating user...');
         let user = this.getUserByAddress(address, walletType);
         if (!user) {
             user = await this.createUser(address, walletType, chainId);
@@ -46,6 +47,7 @@ class WalletSSO {
             // Update last login
             user.lastLoginAt = new Date();
         }
+        console.log('[WalletSSO] User ready, generating tokens...');
         // Generate tokens
         const accessToken = this.jwtUtils.generateAccessToken({
             sub: user.id,
@@ -62,13 +64,15 @@ class WalletSSO {
             chainId: user.chainId,
             nonce: user.nonce,
         });
-        return {
+        const result = {
             accessToken,
             refreshToken,
             idToken,
             expiresIn: this.config.accessTokenExpiry,
             tokenType: 'Bearer',
         };
+        console.log('[WalletSSO] Tokens generated, returning response');
+        return result;
     }
     // Refresh access token
     refreshToken(refreshToken) {

@@ -36,7 +36,7 @@ This example demonstrates how to implement **address-based access restrictions**
 
 3. **Start the restricted server**:
    ```bash
-   npx ts-node polkadot-address-restricted-server.ts
+   npx ts-node ./examples/polkadot_restricted/polkadot-address-restricted-server.ts
    ```
 
    The server will start on `http://localhost:3003` with address restrictions enabled.

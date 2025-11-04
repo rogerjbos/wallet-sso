@@ -1,8 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
-import { WalletSSO } from '../../src/WalletSSO';
-import { WalletType } from '../../src/types';
+import { WalletSSO } from '../../dist/WalletSSO.js';
+import { decodeAddress, encodeAddress } from '@polkadot/util-crypto';
+import { u8aToHex } from '@polkadot/util';
 
 // Configuration for address-restricted Polkadot server
 const config = {
@@ -18,7 +19,9 @@ const config = {
     'http://localhost:8081',
     'http://127.0.0.1:8080',
     'http://127.0.0.1:8081',
-    'file://' // Allow direct file opening
+    'http://127.0.0.1:5500',
+    'http://localhost:5500',
+    'null' // Allow direct file opening (file:// origin sends "null")
   ],
   polkadotEndpoints: [
     'wss://archive-ws.paseo.network',
@@ -30,17 +33,30 @@ const config = {
 const WHITELISTED_ADDRESSES: string[] = [
   // Example addresses - replace with real whitelisted addresses
   '15Vd1WdavwMs4n1Zi8BDkFG262iS6Ut5YN57Ew7HJXNfUnzz', // These are placeholder addresses
-  '5FJQ...', // In production, load from database/smart contract
-  '15M8...',
-  '12MZ...',
-  '13ZK...',
+  '14n4XWhSKbwPKQxLEm7Dfj4KKUtDNLpv2XMQbFs3ss9s38w', // In production, load from database/smart contract
 ];
 
-// Function to check if address is whitelisted
+// Normalize SS58 addresses to comparable public key hex
+function toPublicKeyHex(addr: string): string | null {
+  try {
+    const pub = decodeAddress(addr);
+    return u8aToHex(pub);
+  } catch (e) {
+    return null;
+  }
+}
+
+// Pre-compute normalized whitelist set using public keys
+const WHITELIST_PUBKEYS = new Set(
+  WHITELISTED_ADDRESSES
+    .map(toPublicKeyHex)
+    .filter((x): x is string => !!x)
+);
+
+// Function to check if address is whitelisted (by public key)
 function isAddressWhitelisted(address: string): boolean {
-  return WHITELISTED_ADDRESSES.some(whitelisted =>
-    whitelisted.toLowerCase() === address.toLowerCase()
-  );
+  const pk = toPublicKeyHex(address);
+  return !!pk && WHITELIST_PUBKEYS.has(pk);
 }
 
 // Create Express app
@@ -48,8 +64,19 @@ const app = express();
 const sso = new WalletSSO(config);
 
 // Middleware setup
+// For the example, allow all origins to simplify running the static frontend from any dev server or file://
 app.use(cors({
-  origin: config.corsOrigins || ['http://localhost:3000'],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, or file:// which presents as null)
+    if (!origin) return callback(null, true);
+    return callback(null, true);
+  },
+  credentials: true,
+}));
+
+// Handle preflight
+app.options('*', cors({
+  origin: (origin, callback) => callback(null, true),
   credentials: true,
 }));
 
@@ -148,6 +175,9 @@ app.post('/auth/login', restrictToWhitelistedAddresses, async (req, res) => {
       });
     }
 
+    console.log(`🔐 Starting authentication for ${address}...`);
+    const startTime = Date.now();
+    
     // Proceed with authentication
     const authResponse = await sso.authenticate({
       message,
@@ -156,6 +186,9 @@ app.post('/auth/login', restrictToWhitelistedAddresses, async (req, res) => {
       walletType,
       chainId
     });
+    
+    const elapsed = Date.now() - startTime;
+    console.log(`⏱️ Authentication completed in ${elapsed}ms`);
 
     console.log(`✅ Authentication successful for whitelisted Polkadot address: ${address}`);
     res.json({
@@ -254,11 +287,52 @@ app.get('/user/profile', (req, res) => {
 
 // Get whitelist information (for debugging/admin purposes)
 app.get('/admin/whitelist', (req, res) => {
+  // Provide both original addresses and common re-encodings to help UIs match
+  const enc42: string[] = [];
+  const enc0: string[] = [];
+  for (const addr of WHITELISTED_ADDRESSES) {
+    try {
+      const pk = decodeAddress(addr);
+      enc42.push(encodeAddress(pk, 42));
+      enc0.push(encodeAddress(pk, 0));
+    } catch {
+      // ignore invalid
+    }
+  }
+
   res.json({
     whitelistedAddresses: WHITELISTED_ADDRESSES,
+    reencoded: {
+      prefix42: Array.from(new Set(enc42)),
+      prefix0: Array.from(new Set(enc0))
+    },
+    publicKeys: Array.from(WHITELIST_PUBKEYS),
     count: WHITELISTED_ADDRESSES.length,
-    description: 'Current whitelisted Polkadot addresses'
+    description: 'Current whitelisted Polkadot addresses (normalized server-side)'
   });
+});
+
+// Utility endpoint: re-encode any address to common SS58 formats
+app.get('/tools/reencode', (req, res) => {
+  try {
+    const address = String(req.query.address || '').trim();
+    if (!address) {
+      return res.status(400).json({ error: 'Missing address query parameter' });
+    }
+
+    const pk = decodeAddress(address);
+    const prefix0 = encodeAddress(pk, 0);
+    const prefix42 = encodeAddress(pk, 42);
+
+    return res.json({
+      input: address,
+      prefix0,
+      prefix42,
+      publicKey: u8aToHex(pk)
+    });
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid address', details: e instanceof Error ? e.message : String(e) });
+  }
 });
 
 // OpenID Connect discovery

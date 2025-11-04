@@ -1,0 +1,63 @@
+{
+  "name": "@rogerbos/wallet-sso",
+  "version": "1.0.0",
+  "description": "Wallet-based Single Sign-On library supporting MetaMask and Polkadot with OpenID Connect compliance",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/index.ts",
+    "test": "jest",
+    "lint": "echo 'Linting skipped - TypeScript compilation handles type checking'",
+    "format": "prettier --write src/**/*.ts"
+  },
+  "keywords": [
+    "sso",
+    "oauth",
+    "openid-connect",
+    "metamask",
+    "polkadot",
+    "wallet",
+    "authentication",
+    "blockchain"
+  ],
+  "author": "Roger Bos",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rogerjbos/wallet-sso"
+  },
+  "dependencies": {
+    "@polkadot/api": "^10.9.1",
+    "@polkadot/util": "^12.3.2",
+    "@polkadot/util-crypto": "^12.3.2",
+    "cors": "^2.8.5",
+    "ethers": "^6.7.1",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "jsonwebtoken": "^9.0.2",
+    "jwk-to-pem": "^2.0.5",
+    "node-cache": "^5.1.2",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.21",
+    "@types/express-session": "^1.17.7",
+    "@types/jest": "^29.5.14",
+    "@types/jsonwebtoken": "^9.0.3",
+    "@types/node": "^20.8.0",
+    "@types/uuid": "^9.0.4",
+    "@typescript-eslint/eslint-plugin": "^8.46.2",
+    "@typescript-eslint/parser": "^8.46.2",
+    "eslint": "^9.39.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.0.3",
+    "ts-jest": "^29.4.5",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

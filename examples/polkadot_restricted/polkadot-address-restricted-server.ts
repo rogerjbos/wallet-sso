@@ -32,7 +32,7 @@ const config = {
 // Address whitelist - only these Polkadot addresses can authenticate
 const WHITELISTED_ADDRESSES: string[] = [
   // Example addresses - replace with real whitelisted addresses
-  '15Vd1WdavwMs4n1Zi8BDkFG262iS6Ut5YN57Ew7HJXNfUnzz', // These are placeholder addresses
+  '1UVJTXmRMVEszUaHSuojn2nGVuRFhiMdn3ckdgGqPd1JYc7', // These are placeholder addresses
   '14n4XWhSKbwPKQxLEm7Dfj4KKUtDNLpv2XMQbFs3ss9s38w', // In production, load from database/smart contract
 ];
 

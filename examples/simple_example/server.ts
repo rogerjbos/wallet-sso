@@ -1,4 +1,4 @@
-import { WalletSSOServer } from '../src/WalletSSOServer';
+import { WalletSSOServer } from '../../dist/WalletSSOServer.js';
 
 // Example configuration
 const config = {
@@ -9,11 +9,7 @@ const config = {
   refreshTokenExpiry: 86400, // 24 hours
   sessionSecret: 'your-session-secret-change-in-production',
   port: 3001,
-  corsOrigins: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8080', 'http://192.168.86.56:8080'],
-  // polkadotEndpoints: [
-  //   'wss://archive-ws.paseo.network',
-  //   'wss://paseo-rpc.dwellir.com'
-  // ],
+  corsOrigins: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8080', 'http://127.0.0.1:8080', 'http://127.0.0.1:8081', 'http://127.0.0.1:5500', 'http://localhost:5500', 'null'],
 };
 
 // Create and start the SSO server

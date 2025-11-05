@@ -9,6 +9,9 @@ This example demonstrates how to implement **address-based access restrictions**
 - 🌐 **Frontend demo**: HTML page showing address restriction UI
 - 📋 **Whitelist management**: Configurable list of authorized addresses
 - 🔍 **Detailed logging**: Comprehensive authentication flow logging
+- 🔄 **SS58 address encoding**: Display multiple SS58 formats (prefix 0, 42) for connected addresses
+- 👤 **User profile display**: Fetch and display authenticated user information
+- 🛠️ **Address utilities**: Re-encode addresses between different SS58 formats
 
 ## Prerequisites
 
@@ -63,6 +66,25 @@ This example demonstrates how to implement **address-based access restrictions**
 - **CORS protection**: Configured for local development
 - **Session management**: Express session handling
 
+## Enhanced UI Features
+
+The frontend demo includes advanced features for better user experience and debugging:
+
+### SS58 Address Encodings
+- **Multi-format display**: Shows the connected address in both SS58 prefix 0 and prefix 42 formats
+- **Real-time conversion**: Automatically fetches and displays alternative encodings when connecting
+- **Address validation**: Helps users understand different address representations
+
+### User Profile Display
+- **Post-authentication info**: Fetches and displays complete user profile after successful authentication
+- **Token management**: Shows access and refresh tokens with expiration details
+- **Authorization status**: Displays whether the address is authorized for the service
+
+### Address Utilities
+- **Re-encoding endpoint**: Server provides `/tools/reencode` for converting between SS58 formats
+- **Public key extraction**: Displays the underlying public key for addresses
+- **Format validation**: Ensures addresses are valid before processing
+
 ## Configuration
 
 ### Server Configuration
@@ -99,6 +121,7 @@ const WHITELISTED_ADDRESSES: string[] = [
 |--------|----------|-------------|
 | GET | `/health` | Health check with whitelist information |
 | GET | `/admin/whitelist` | View current whitelisted addresses |
+| GET | `/tools/reencode` | Re-encode addresses between SS58 formats |
 | POST | `/auth/challenge` | Generate authentication challenge (address restricted) |
 | POST | `/auth/login` | Authenticate user (address restricted) |
 | POST | `/auth/refresh` | Refresh JWT token |
@@ -118,10 +141,16 @@ curl http://localhost:3003/health
 curl http://localhost:3003/admin/whitelist
 ```
 
+### Test Address Re-encoding
+```bash
+curl "http://localhost:3003/tools/reencode?address=5GZKsBNX5A6PdF13kV8Dc6RsEQinQBKwTsLd5e7vkSM9JFV3"
+```
+
 ### Test Authentication
 1. Open the frontend demo in your browser
 2. Try connecting with a whitelisted Polkadot address - should work
 3. Try connecting with a non-whitelisted address - should be rejected
+4. **Enhanced features**: Check that SS58 encodings are displayed and user profile loads after authentication
 
 ## Troubleshooting
 
@@ -158,7 +187,9 @@ curl http://localhost:3003/admin/whitelist
 |---------|----------------|-------------------|----------------------------|
 | Wallet Types | All supported | MetaMask only | Polkadot only |
 | Address Restrictions | None | None | Whitelist required |
-| Frontend Complexity | Basic | Medium | High |
+| SS58 Encoding Display | No | N/A | Yes |
+| User Profile Display | No | No | Yes |
+| Frontend Complexity | Basic | Medium | Advanced |
 | Security Level | Basic | Medium | High |
 | Use Case | General demo | MetaMask-only service | Exclusive Polkadot access |
 

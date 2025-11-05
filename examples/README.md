@@ -19,21 +19,6 @@ cd simple_example
 open simple-frontend.html
 ```
 
-### 🔒 [MetaMask Restricted](./metamask_restricted/)
-**Wallet restrictions and access control**
-
-- ✅ MetaMask-only authentication
-- ✅ Frontend UI restrictions
-- ✅ Backend middleware validation
-- ✅ Security best practices
-- ✅ Configuration examples
-
-**Quick Start:**
-```bash
-cd metamask_restricted
-open metamask-only-frontend.html
-```
-
 ### 🛡️ [Polkadot Address Restricted](./polkadot_restricted/)
 **Address-based access control for Polkadot wallets**
 
@@ -77,28 +62,10 @@ Each example folder contains:
 cd simple_example
 open simple-frontend.html
 
-# Test restricted examples
-cd ../metamask_restricted
-open metamask-only-frontend.html
-
 # Test address-restricted example
 cd ../polkadot_restricted
 open polkadot-address-restricted-frontend.html
 ```
-
-## Example Comparison
-
-| Feature | Simple Example | MetaMask Restricted | Polkadot Address Restricted |
-|---------|----------------|-------------------|----------------------------|
-| MetaMask Support | ✅ | ✅ | ❌ (restricted) |
-| Polkadot Support | ✅ | ❌ (restricted) | ✅ |
-| Address Restrictions | ❌ | ❌ | ✅ (whitelist) |
-| UI Restrictions | ❌ | ✅ | ✅ |
-| Backend Validation | ❌ | ✅ | ✅ |
-| Multiple Servers | ❌ | ✅ (port 3002) | ✅ (port 3003) |
-| Middleware | ❌ | ✅ | ✅ |
-| Security Level | Basic | Medium | High |
-| Configuration | Basic | Advanced | Advanced |
 
 ## Development Workflow
 
@@ -311,7 +278,7 @@ The `metamask-only-frontend.html` file demonstrates **frontend-side wallet restr
 open examples/metamask-only-frontend.html
 
 # Or serve with HTTP server
-cd /Users/rogerbos/node_home/wallet-sso
+cd ./wallet-sso
 python3 -m http.server 8080
 # Then visit: http://localhost:8080/examples/metamask-only-frontend.html
 ```
